@@ -12,11 +12,11 @@ var (
 )
 
 type Handler struct {
-	handler func(Context) (Response, error)
+	handler func(Context) error
 	logger  logrus.FieldLogger
 }
 
-func NewHandler(handleFunc func(Context) (Response, error), options ...func(*Handler)) *Handler {
+func NewHandler(handleFunc func(Context) error, options ...func(*Handler)) *Handler {
 	var handler = &Handler{
 		handler: handleFunc,
 	}
@@ -35,8 +35,9 @@ func NewHandler(handleFunc func(Context) (Response, error), options ...func(*Han
 }
 
 type Context struct {
-	Request Request
-	Logger  logrus.FieldLogger
+	Request  Request
+	Response Response
+	Logger   logrus.FieldLogger
 }
 
 func WithLogger(logger logrus.FieldLogger) func(handler *Handler) {
@@ -53,17 +54,22 @@ func (handler *Handler) ServeHTTP(writer http.ResponseWriter, request *http.Requ
 		writer.WriteHeader(http.StatusInternalServerError)
 		return
 	}
-	resp, err := handler.handler(Context{
+	var ctx = Context{
 		Request: aliceRequest,
 		Logger:  handler.logger,
-	})
+		Response: Response{
+			Version: aliceRequest.Version,
+			Session: aliceRequest.Session,
+		},
+	}
+	err := handler.handler(ctx)
 	if err != nil {
 		handler.logger.WithError(err).Errorf("unable to process Alice request")
 		writer.WriteHeader(http.StatusInternalServerError)
 		return
 	}
-	resp.Version = aliceRequest.Version
-	if err := json.NewEncoder(writer).Encode(resp); err != nil {
+
+	if err := json.NewEncoder(writer).Encode(ctx.Response); err != nil {
 		handler.logger.WithError(err).Errorf("unable to encode response")
 		writer.WriteHeader(http.StatusInternalServerError)
 		return
