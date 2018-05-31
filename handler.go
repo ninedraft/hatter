@@ -12,11 +12,11 @@ var (
 )
 
 type Handler struct {
-	handler func(Context) error
+	handler func(*Context) error
 	logger  logrus.FieldLogger
 }
 
-func NewHandler(handleFunc func(Context) error, options ...func(*Handler)) *Handler {
+func NewHandler(handleFunc func(*Context) error, options ...func(*Handler)) *Handler {
 	var handler = &Handler{
 		handler: handleFunc,
 	}
@@ -62,7 +62,7 @@ func (handler *Handler) ServeHTTP(writer http.ResponseWriter, request *http.Requ
 			Session: aliceRequest.Session,
 		},
 	}
-	err := handler.handler(ctx)
+	err := handler.handler(&ctx)
 	if err != nil {
 		handler.logger.WithError(err).Errorf("unable to process Alice request")
 		writer.WriteHeader(http.StatusInternalServerError)
